@@ -16,7 +16,8 @@ export default function Home() {
           </Link>
           <nav>Sobre</nav>
         </header>
-        <div className="w-full h-[400px] rounded-lg overflow-hidden">
+
+        <div className="w-full rounded-lg overflow-hidden p-4 border bg-card shadow-sm">
           <ClientMap />
         </div>
       </div>
