@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   const lat = parseFloat(searchParams.get("lat") || "0");
   const lng = parseFloat(searchParams.get("lng") || "0");
-  const radius = parseFloat(searchParams.get("radius") || "10");
+  const radius = parseFloat(searchParams.get("radius") || "3");
 
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");

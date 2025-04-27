@@ -4,6 +4,8 @@ import { DynamicMap } from "@/components/map";
 import { LatLngTuple } from "leaflet";
 import { toast } from "sonner";
 import { SearchLocation } from "@/components/search-location";
+import { classifyAreaRisk } from "./riskClassification";
+import { RiskAlert } from "./risk-alert";
 
 interface FireFeature {
   geometry: {
@@ -12,6 +14,15 @@ interface FireFeature {
   properties: {
     data_hora_gmt: string;
     municipio: string;
+    estado?: string;
+    bioma?: string;
+    satelite?: string;
+    frp?: number;
+    risco?: string;
+    tipo_queimada?: string;
+    confianca?: number;
+    uf?: string;
+    [key: string]: unknown;
   };
 }
 
@@ -143,7 +154,15 @@ export default function ClientMap() {
         <SearchLocation onLocationFound={handleLocationFound} />
       </div>
 
-      <div className="w-full h-[500px] rounded-lg overflow-hidden relative">
+      <RiskAlert
+        riskData={
+          !isLoadingLocation && !isLoadingFires ? classifyAreaRisk(fires) : null
+        }
+        isLoading={isLoadingLocation || isLoadingFires}
+        fireCount={fires.length}
+      />
+
+      <div className="w-full h-[450px] rounded-lg overflow-hidden relative">
         {(isLoadingLocation || isLoadingFires) && (
           <div className="absolute inset-0 bg-gray-100/70 flex flex-col items-center justify-center z-10">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-2"></div>
