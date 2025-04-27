@@ -1,17 +1,33 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DynamicMap } from "@/components/map";
 import { LatLngTuple } from "leaflet";
 import { toast } from "sonner";
 import { SearchLocation } from "@/components/search-location";
 
+interface FireFeature {
+  geometry: {
+    coordinates: [number, number];
+  };
+  properties: {
+    data_hora_gmt: string;
+    municipio: string;
+  };
+}
+
 export default function ClientMap() {
   const DEFAULT_POSITION: LatLngTuple = [-23.564324, -46.652713];
   const [position, setPosition] = useState<LatLngTuple>(DEFAULT_POSITION);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [fires, setFires] = useState<FireFeature[]>([]);
+  const [isLoadingFires, setIsLoadingFires] = useState(false);
+  const [shouldFetchFires, setShouldFetchFires] = useState(false);
+  const hasFetchedInitialLocation = useRef(false);
 
-  const getUserLocation = async () => {
-    setIsLoading(true);
+  const getUserLocation = useCallback(async () => {
+    if (hasFetchedInitialLocation.current) return;
+
+    setIsLoadingLocation(true);
 
     if (navigator.geolocation) {
       try {
@@ -31,53 +47,95 @@ export default function ClientMap() {
 
         const { latitude, longitude } = browserPosition.coords;
         setPosition([latitude, longitude]);
-        setIsLoading(false);
+        setShouldFetchFires(true);
         toast("Localização atual encontrada!");
-        return;
       } catch (error) {
-        console.log(
-          "Erro na geolocalização do navegador, tentando fallback:",
-          error
-        );
+        console.error("Erro na geolocalização:", error);
         toast("Usando localização aproximada");
+
+        try {
+          const response = await fetch("/api/geo");
+          if (!response.ok) throw new Error(`Erro: ${response.status}`);
+
+          const data = await response.json();
+          if (data.latitude && data.longitude) {
+            setPosition([
+              parseFloat(data.latitude),
+              parseFloat(data.longitude),
+            ]);
+            setShouldFetchFires(true);
+          }
+        } catch (err) {
+          console.error("Erro no fallback:", err);
+          toast("Erro de localização");
+        }
+      } finally {
+        setIsLoadingLocation(false);
+        hasFetchedInitialLocation.current = true;
       }
     } else {
       toast("Navegador sem suporte para geolocalização.");
+      setIsLoadingLocation(false);
+      hasFetchedInitialLocation.current = true;
     }
+  }, []);
+
+  const fetchFires = useCallback(async () => {
+    if (!shouldFetchFires) return;
+
+    setIsLoadingFires(true);
+    setShouldFetchFires(false);
 
     try {
-      const response = await fetch("/api/geo");
+      const [lat, lng] = position;
+      const radius = 10;
+
+      const apiUrl = `/api/fire-points?lat=${lat}&lng=${lng}&radius=${radius}`;
+      console.log("Buscando dados em:", apiUrl);
+
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         throw new Error(`Erro na API: ${response.status}`);
       }
 
       const data = await response.json();
-      if (data.latitude && data.longitude) {
-        const lat = parseFloat(data.latitude);
-        const lng = parseFloat(data.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setPosition([lat, lng]);
-        } else {
-          throw new Error("Coordenadas inválidas da API");
-        }
+      console.log(
+        "Dados recebidos, número de pontos:",
+        data.features?.length || 0
+      );
+
+      if (data.features && Array.isArray(data.features)) {
+        setFires(data.features);
       } else {
-        throw new Error("API retornou dados incompletos");
+        setFires([]);
       }
-    } catch (err) {
-      console.error("Erro no fallback de geolocalização:", err);
-      toast("Erro de localização");
+
+      toast(`${data.features?.length || 0} focos de queimada encontrados`);
+    } catch (error) {
+      console.error("Erro na API:", error);
+      toast("Erro ao buscar focos de queimada");
+      setFires([]);
     } finally {
-      setIsLoading(false);
+      setIsLoadingFires(false);
     }
-  };
+  }, [position, shouldFetchFires]);
 
   useEffect(() => {
     getUserLocation();
-  }, []);
+  }, [getUserLocation]);
 
-  const handleLocationFound = (newPosition: LatLngTuple) => {
+  useEffect(() => {
+    if (shouldFetchFires) {
+      fetchFires();
+    }
+  }, [shouldFetchFires, fetchFires]);
+
+  const handleLocationFound = useCallback((newPosition: LatLngTuple) => {
     setPosition(newPosition);
-  };
+    setFires([]);
+    setShouldFetchFires(true);
+    toast("Buscando focos de queimada para esta localização...");
+  }, []);
 
   return (
     <div className="w-full space-y-4">
@@ -86,12 +144,21 @@ export default function ClientMap() {
       </div>
 
       <div className="w-full h-[400px] rounded-lg overflow-hidden relative">
-        {isLoading && (
-          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        {(isLoadingLocation || isLoadingFires) && (
+          <div className="absolute inset-0 bg-gray-100/70 flex flex-col items-center justify-center z-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-2"></div>
+            <p className="text-sm">
+              {isLoadingLocation
+                ? "Obtendo localização..."
+                : "Buscando focos de queimada..."}
+            </p>
           </div>
         )}
-        <DynamicMap position={position} className="h-full w-full" />
+        <DynamicMap
+          position={position}
+          fires={fires}
+          className="h-full w-full"
+        />
       </div>
     </div>
   );

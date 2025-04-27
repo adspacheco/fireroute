@@ -16,14 +16,9 @@ export function SearchLocation({ onLocationFound }: SearchLocationProps) {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!searchTerm.trim()) {
-      toast("Digite um endereço para buscar");
-      return;
-    }
+    if (!searchTerm.trim()) return toast("Digite um endereço");
 
     setIsSearching(true);
-
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -31,22 +26,26 @@ export function SearchLocation({ onLocationFound }: SearchLocationProps) {
         )}&limit=1`
       );
 
-      if (!response.ok) {
-        throw new Error(`Erro na busca: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`Status: ${response.status}`);
       const data = await response.json();
 
-      if (data && data.length > 0) {
+      if (data?.length > 0) {
         const { lat, lon } = data[0];
-        onLocationFound([parseFloat(lat), parseFloat(lon)]);
-        toast("Localização encontrada!");
+        const parsedLat = parseFloat(lat);
+        const parsedLon = parseFloat(lon);
+
+        if (!isNaN(parsedLat) && !isNaN(parsedLon)) {
+          toast(`Local encontrado: ${data[0].display_name.split(",")[0]}`);
+          onLocationFound([parsedLat, parsedLon]);
+        } else {
+          toast("Coordenadas inválidas recebidas");
+        }
       } else {
-        toast("Nenhum resultado encontrado para este endereço");
+        toast("Nenhum resultado encontrado");
       }
     } catch (error) {
-      console.error("Erro ao buscar localização:", error);
-      toast("Erro ao buscar localização");
+      console.error("Busca falhou:", error);
+      toast("Erro na busca");
     } finally {
       setIsSearching(false);
     }
@@ -57,7 +56,7 @@ export function SearchLocation({ onLocationFound }: SearchLocationProps) {
       <div className="relative flex-1">
         <Input
           type="text"
-          placeholder="Digite o endereço completo: Rua, número, bairro, cidade, estado..."
+          placeholder="Endereço completo: Rua, número, cidade, estado..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pr-10"
