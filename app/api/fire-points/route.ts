@@ -80,8 +80,9 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      console.log(
-        `Número de pontos após filtragem por data: ${data.features.length}`
+      data.features = data.features.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (feature: any) => feature.properties.frp !== undefined
       );
     }
 
