@@ -1,5 +1,12 @@
 "use client";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  Circle,
+} from "react-leaflet";
 import L from "leaflet";
 import { LatLngExpression, LatLngTuple } from "leaflet";
 import { useEffect } from "react";
@@ -23,7 +30,7 @@ interface FireFeature {
     coordinates: [number, number];
   };
   properties: {
-    data_hora_gmt: string; // Mudado de 'date' para 'data_hora_gmt'
+    data_hora_gmt: string;
     municipio: string;
   };
 }
@@ -33,6 +40,7 @@ export interface MapProps {
   zoom?: number;
   className?: string;
   fires?: FireFeature[];
+  radiusKm?: number;
 }
 
 function ChangeView({
@@ -51,14 +59,18 @@ function ChangeView({
   return null;
 }
 
-const DEFAULT_ZOOM = 15;
+const DEFAULT_ZOOM = 13;
+const DEFAULT_RADIUS_KM = 3;
 
 export const Map = ({
   position,
   zoom = DEFAULT_ZOOM,
   className,
   fires,
+  radiusKm = DEFAULT_RADIUS_KM,
 }: MapProps) => {
+  const radiusMeters = radiusKm * 1000;
+
   return (
     <MapContainer
       center={position}
@@ -74,18 +86,28 @@ export const Map = ({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
+      {/* Círculo representando o raio de busca da API */}
+      <Circle
+        center={position}
+        radius={radiusMeters}
+        pathOptions={{
+          color: "#3b82f6", // Cor azul
+          fillColor: "#3b82f6",
+          fillOpacity: 0.1,
+          weight: 1,
+        }}
+      >
+        <Popup>Raio de busca: {radiusKm} km</Popup>
+      </Circle>
+
       <Marker position={position}>
         <Popup>Sua localização atual</Popup>
       </Marker>
 
       {fires?.map((fire, index) => {
-        const [lng, lat] = fire.geometry.coordinates; // Mantenha essa linha
+        const [lng, lat] = fire.geometry.coordinates;
         return (
-          <Marker
-            key={`fire-${index}`}
-            position={[lat, lng]} // Lat primeiro, depois Lng
-            icon={fireIcon}
-          >
+          <Marker key={`fire-${index}`} position={[lat, lng]} icon={fireIcon}>
             <Popup>
               <div className="text-sm">
                 <strong>Data:</strong>{" "}
