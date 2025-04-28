@@ -79,10 +79,16 @@ export function getFireIntensityLevel(fire: FireFeature): string {
  */
 export function getFireIconOptions(intensity: string): FireIconOptions {
   const intensityLower = intensity.toLowerCase();
-  let iconColor = "red"; // padrão
+  let iconColor = "red"; // padrão para intensidade alta
 
-  if (intensityLower.includes("baix")) iconColor = "yellow";
-  else if (intensityLower.includes("medi")) iconColor = "orange";
+  if (intensityLower.includes("baix")) {
+    iconColor = "green"; // Mudando para verde para intensidade baixa
+  } else if (
+    intensityLower.includes("médi") ||
+    intensityLower.includes("medi")
+  ) {
+    iconColor = "orange"; // Mudando para laranja para intensidade média
+  }
 
   return {
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${iconColor}.png`,
