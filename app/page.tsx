@@ -1,4 +1,4 @@
-import ClientMap from "@/components/client-map";
+import MapContainer from "@/components/map-container";
 import { Flame } from "lucide-react";
 import Link from "next/link";
 
@@ -18,7 +18,7 @@ export default function Home() {
         </header>
 
         <div className="w-full rounded-lg overflow-hidden p-4 border bg-card shadow-sm">
-          <ClientMap />
+          <MapContainer />
         </div>
       </div>
     </div>
