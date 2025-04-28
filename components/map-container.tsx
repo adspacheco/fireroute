@@ -62,8 +62,6 @@ export default function MapContainer() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
-
   // Controle se já buscou localização inicial
   const locationFetched = useRef(false);
 
@@ -74,7 +72,6 @@ export default function MapContainer() {
     if (locationFetched.current) return;
 
     setIsLoadingLocation(true);
-    setLocationConfirmed(false);
 
     try {
       if (navigator.geolocation) {
@@ -91,8 +88,7 @@ export default function MapContainer() {
 
           setPosition([position.coords.latitude, position.coords.longitude]);
           setShouldFetchFires(true);
-          setLocationConfirmed(true);
-          toast("Localização encontrada!");
+          toast.success("Usando localização precisa");
           return;
         } catch (error) {
           const geoError = error as GeolocationPositionError;
@@ -102,24 +98,18 @@ export default function MapContainer() {
           } else {
             console.error("Erro geolocalização:", error);
           }
-          toast.info("Usando localização aproximada", {
-            id: "approximate-location",
-            duration: 5000,
-          });
-        } finally {
-          setIsLoadingLocation(false);
-          locationFetched.current = true;
         }
       }
 
-      // Fallback para API
+      toast.info("Usando localização aproximada");
+
+      // Fallback para API de IP
       const response = await fetch("/api/geo");
       const data = await response.json();
 
       if (data.latitude && data.longitude) {
         setPosition([parseFloat(data.latitude), parseFloat(data.longitude)]);
         setShouldFetchFires(true);
-        setLocationConfirmed(true);
       }
     } catch (err) {
       console.error("Erro localização:", err);
@@ -152,7 +142,6 @@ export default function MapContainer() {
         data.features && Array.isArray(data.features) ? data.features : [];
 
       setFires(features);
-      toast(`${features.length} focos de queimada encontrados`);
     } catch (error) {
       console.error("Erro API:", error);
       toast("Erro ao buscar focos de queimada");
@@ -190,7 +179,6 @@ export default function MapContainer() {
           setPosition([parsedLat, parsedLon]);
           setFires([]);
           setShouldFetchFires(true);
-          setLocationConfirmed(true);
         } else {
           toast("Coordenadas inválidas");
         }
@@ -255,18 +243,6 @@ export default function MapContainer() {
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-2"></div>
             <p className="text-sm">Obtendo localização...</p>
-          </div>
-        ) : !locationConfirmed ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-sm mb-2">
-              Precisamos da sua localização para continuar
-            </p>
-            <Button onClick={() => getUserLocation()} className="mb-2">
-              Tentar novamente
-            </Button>
-            <p className="text-xs text-gray-500">
-              Ou use a busca acima para encontrar um endereço
-            </p>
           </div>
         ) : (
           <>
