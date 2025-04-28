@@ -43,3 +43,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 2. Geolocation
    https://vercel.com/templates/next.js/edge-functions-geolocation
    https://www.wisp.blog/blog/nextjs-15-is-out-whats-new-and-what-broke
+
+3. Risco de Fogo
+   http://bibdigital.sid.inpe.br/col/sid.inpe.br/bibdigital@80/2006/11.11.23.17/doc/mirrorget.cgi?languagebutton=pt-BR&metadatarepository=sid.inpe.br/mtc-m21c/2019/11.21.11.03.50&index=0&serveraddress=mtc-m21c.sid.inpe.br%20806&choice=full&lastupdate=2020:01.06.11.42.23%20urlib.net/www/2017/11.22.19.04%20administrator%20%7BD%202019%7D&continue=no&keywords=&accent=yes&case=yes&imageflag=0&mirrorgetflag=1
