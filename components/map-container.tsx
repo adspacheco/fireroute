@@ -62,6 +62,8 @@ export default function MapContainer() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+
   // Controle se já buscou localização inicial
   const locationFetched = useRef(false);
 
@@ -72,6 +74,7 @@ export default function MapContainer() {
     if (locationFetched.current) return;
 
     setIsLoadingLocation(true);
+    setLocationConfirmed(false);
 
     try {
       if (navigator.geolocation) {
@@ -88,11 +91,15 @@ export default function MapContainer() {
 
           setPosition([position.coords.latitude, position.coords.longitude]);
           setShouldFetchFires(true);
+          setLocationConfirmed(true);
           toast("Localização encontrada!");
           return;
         } catch (error) {
           console.error("Erro geolocalização:", error);
           toast("Usando localização aproximada");
+        } finally {
+          setIsLoadingLocation(false);
+          locationFetched.current = true;
         }
       }
 
@@ -173,6 +180,7 @@ export default function MapContainer() {
           setPosition([parsedLat, parsedLon]);
           setFires([]);
           setShouldFetchFires(true);
+          setLocationConfirmed(true);
         } else {
           toast("Coordenadas inválidas");
         }
@@ -232,23 +240,40 @@ export default function MapContainer() {
         riskData && <RiskAlert data={riskData} fireCount={fires.length} />
       )}
 
-      <div className="w-full h-[450px] rounded-lg overflow-hidden relative">
-        {(isLoadingLocation || isLoadingFires) && (
-          <div className="absolute inset-0 bg-gray-100/70 flex flex-col items-center justify-center z-10">
+      <div className="w-full h-[450px] rounded-lg overflow-hidden relative bg-gray-100">
+        {isLoadingLocation ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-2"></div>
-            <p className="text-sm">
-              {isLoadingLocation
-                ? "Obtendo localização..."
-                : "Buscando focos de queimada..."}
+            <p className="text-sm">Obtendo localização...</p>
+          </div>
+        ) : !locationConfirmed ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="text-sm mb-2">
+              Precisamos da sua localização para continuar
+            </p>
+            <Button onClick={() => getUserLocation()} className="mb-2">
+              Tentar novamente
+            </Button>
+            <p className="text-xs text-gray-500">
+              Ou use a busca acima para encontrar um endereço
             </p>
           </div>
+        ) : (
+          <>
+            {isLoadingFires && (
+              <div className="absolute inset-0 bg-gray-100/70 flex flex-col items-center justify-center z-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-2"></div>
+                <p className="text-sm">Buscando focos de queimada...</p>
+              </div>
+            )}
+            <MapComponent
+              position={position}
+              fires={fires}
+              className="h-full w-full"
+              radiusKm={DEFAULT_RADIUS_KM + 1}
+            />
+          </>
         )}
-        <MapComponent
-          position={position}
-          fires={fires}
-          className="h-full w-full"
-          radiusKm={DEFAULT_RADIUS_KM + 1} // Aumenta o raio para incluir a área de risco
-        />
       </div>
     </div>
   );
