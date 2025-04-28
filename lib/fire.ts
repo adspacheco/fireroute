@@ -1,12 +1,3 @@
-export interface FireIconOptions {
-  iconUrl: string;
-  shadowUrl: string;
-  iconSize: [number, number];
-  iconAnchor: [number, number];
-  popupAnchor: [number, number];
-  shadowSize: [number, number];
-}
-
 // Tipos
 export type RiskLevel = "segura" | "atenção" | "perigo";
 
@@ -20,7 +11,7 @@ export interface RiskData {
 
 export interface FireFeature {
   geometry: {
-    coordinates: [number, number]; // [longitude, latitude]
+    coordinates: [number, number];
   };
   properties: {
     data_hora_gmt: string;
@@ -28,10 +19,10 @@ export interface FireFeature {
     estado?: string;
     bioma?: string;
     satelite?: string;
-    frp?: number; // Potência radiativa em MW
-    risco?: string;
-    tipo_queimada?: string;
-    confianca?: number;
+    frp?: number;
+    risco_fogo?: number;
+    numero_dias_sem_chuva?: number;
+    vegetacao?: string;
     uf?: string;
     [key: string]: unknown;
   };
@@ -47,51 +38,68 @@ export interface FireIconOptions {
 }
 
 /**
- * Classifica intensidade do fogo baseado no FRP
+ * Normaliza um valor para a faixa 0–1.
+ * Se estiver fora do intervalo, é saturado nos extremos.
  */
-export function classifyFireIntensity(frp?: number): string {
-  if (frp === undefined || frp === null) return "Não classificada";
-  if (frp < 30) return "Baixa";
-  if (frp < 100) return "Média";
-  return "Alta";
+function normalize(value: number, min: number, max: number): number {
+  if (value <= min) return 0;
+  if (value >= max) return 1;
+  return (value - min) / (max - min);
 }
 
 /**
- * Determina nível de intensidade considerando FRP e risco reportado
+ * Converte descrição de vegetação em peso de 0–1 (quanto maior, mais inflamável).
  */
-export function getFireIntensityLevel(fire: FireFeature): string {
-  const frpIntensity = classifyFireIntensity(fire.properties.frp);
-  const riskValue = fire.properties.risco?.toLowerCase();
-
-  if (riskValue?.includes("alt")) return "Alta";
-  if (
-    riskValue?.includes("baix") &&
-    frpIntensity !== "Alta" &&
-    frpIntensity !== "Média"
-  )
-    return "Baixa";
-
-  return frpIntensity;
+function vegetationFactor(text?: string): number {
+  if (!text) return 0.5;
+  const t = text.toLowerCase();
+  if (t.includes("savana") || t.includes("pastagem") || t.includes("gramíneas"))
+    return 1;
+  if (t.includes("floresta")) return 0.8;
+  if (t.includes("corpos d´água") || t.includes("área urbana")) return 0.2;
+  return 0.5;
 }
 
 /**
- * Retorna as opções de ícone com base na intensidade
+ * Calcula o score de risco (0–1) para um foco individual.
+ *  - 40 %   FRP (potência radiativa)
+ *  - 30 %   dias sem chuva
+ *  - 20 %   índice risco_fogo fornecido pelo INPE
+ *  - 10 %   tipo de vegetação
  */
-export function getFireIconOptions(intensity: string): FireIconOptions {
-  const intensityLower = intensity.toLowerCase();
-  let iconColor = "red";
+export function compositeRiskScore(fire: FireFeature): number {
+  const frpN = normalize(fire.properties.frp ?? 0, 0, 300);
+  const diasSecosN = normalize(
+    fire.properties.numero_dias_sem_chuva ?? 0,
+    0,
+    30
+  );
+  let riscoIdx = fire.properties.risco_fogo ?? 0;
+  if (riscoIdx < 0) riscoIdx = 0;
+  if (riscoIdx > 1) riscoIdx = 1;
+  const veg = vegetationFactor(fire.properties.vegetacao as string);
+  return 0.4 * frpN + 0.3 * diasSecosN + 0.2 * riscoIdx + 0.1 * veg;
+}
 
-  if (intensityLower.includes("baix")) {
-    iconColor = "green";
-  } else if (
-    intensityLower.includes("médi") ||
-    intensityLower.includes("medi")
-  ) {
-    iconColor = "orange";
-  }
+/** Mapeia um score 0–1 para o nível de risco textual */
+export function riskLevelForScore(score: number): RiskLevel {
+  if (score >= 0.7) return "perigo";
+  if (score >= 0.4) return "atenção";
+  return "segura";
+}
 
+export function getRiskLevelForFire(fire: FireFeature): RiskLevel {
+  return riskLevelForScore(compositeRiskScore(fire));
+}
+
+/**
+ * Retorna as opções de ícone com base no nível de risco
+ */
+export function getFireIconOptions(level: RiskLevel): FireIconOptions {
+  const color =
+    level === "segura" ? "green" : level === "atenção" ? "orange" : "red";
   return {
-    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${iconColor}.png`,
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
     shadowUrl:
       "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
     iconSize: [25, 41],
@@ -105,14 +113,12 @@ export function getFireIconOptions(intensity: string): FireIconOptions {
  * Obtém texto de tempo relativo
  */
 export function getDaysSinceDetection(dateString: string): string {
-  const diffDays = Math.floor(
-    Math.abs(new Date().getTime() - new Date(dateString).getTime()) /
-      (1000 * 60 * 60 * 24)
+  const diff = Math.floor(
+    Math.abs(Date.now() - new Date(dateString).getTime()) / 86400000
   );
-
-  if (diffDays === 0) return "Hoje";
-  if (diffDays === 1) return "Ontem";
-  return `Há ${diffDays} dias`;
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Ontem";
+  return `Há ${diff} dias`;
 }
 
 /**
@@ -129,7 +135,8 @@ export function formatDateTime(dateString: string): string {
 }
 
 /**
- * Classifica risco da área baseado nos focos
+ * Gera o objeto RiskData para exibição na interface, analisando todos os focos
+ * dentro da área (por exemplo, raio de 3 km).
  */
 export function classifyAreaRisk(fires: FireFeature[]): RiskData {
   if (fires.length === 0) {
@@ -142,74 +149,47 @@ export function classifyAreaRisk(fires: FireFeature[]): RiskData {
     };
   }
 
-  // Conta por intensidade
-  const counts = fires.reduce(
-    (acc, fire) => {
-      const level = getFireIntensityLevel(fire);
-      if (level === "Alta") acc.high++;
-      else if (level === "Média") acc.medium++;
-      else acc.low++;
-      return acc;
-    },
-    { high: 0, medium: 0, low: 0 }
-  );
+  // Contagem por níveis
+  let worst: RiskLevel = "segura" as RiskLevel;
+  let perigo = 0;
+  let atencao = 0;
 
-  // Focos de alta intensidade têm precedência
-  if (counts.high > 0) {
-    if (counts.high >= 3) {
-      return {
-        level: "perigo",
-        description: "Área com Histórico de Alto Risco",
-        color: "text-red-700",
-        bgColor: "bg-red-100",
-        recommendation: `Região com ${counts.high} registros graves de queimadas.`,
-      };
-    }
+  fires.forEach((f) => {
+    const lvl = getRiskLevelForFire(f);
+    if (lvl === "perigo") perigo++;
+    if (lvl === "atenção") atencao++;
+    if (lvl === "perigo") worst = "perigo";
+    else if (lvl === "atenção" && worst !== "perigo") worst = "atenção";
+  });
+
+  if (worst === "perigo") {
+    return {
+      level: "perigo",
+      description: "Área com Histórico de Alto Risco",
+      color: "text-red-700",
+      bgColor: "bg-red-100",
+      recommendation: `Região com ${perigo} focos de alto risco registrados recentemente.`,
+    };
+  }
+
+  if (worst === "atenção") {
     return {
       level: "atenção",
       description: "Área com Histórico de Risco Relevante",
       color: "text-orange-700",
       bgColor: "bg-orange-100",
-      recommendation: `Região com ${counts.high} ${
-        counts.high === 1 ? "registro importante" : "registros importantes"
-      } de queimada.`,
+      recommendation: `Região com ${atencao} focos de risco moderado registrados recentemente.`,
     };
   }
 
-  // Focos de média intensidade
-  if (counts.medium > 0) {
-    return {
-      level: "atenção",
-      description:
-        counts.medium >= 5
-          ? "Área com Histórico de Atenção"
-          : "Área com Histórico de Baixa Atenção",
-      color: "text-yellow-700",
-      bgColor: "bg-yellow-100",
-      recommendation: `Região com ${counts.medium} ${
-        counts.medium === 1 ? "registro moderado" : "registros moderados"
-      } de queimada.`,
-    };
-  }
-
-  // Apenas focos de baixa intensidade
-  return counts.low >= 10
-    ? {
-        level: "atenção",
-        description: "Área com Histórico de Muitos Focos Leves",
-        color: "text-yellow-700",
-        bgColor: "bg-yellow-100",
-        recommendation: `Região com ${counts.low} registros pequenos de queimadas.`,
-      }
-    : {
-        level: "segura",
-        description: "Área com Histórico de Baixo Risco",
-        color: "text-green-700",
-        bgColor: "bg-green-100",
-        recommendation: `Região com apenas ${counts.low} ${
-          counts.low === 1 ? "registro pequeno" : "registros pequenos"
-        } de queimada.`,
-      };
+  // Se não houver focos de risco, mas houver focos leves
+  return {
+    level: "segura",
+    description: "Área Historicamente Segura",
+    color: "text-green-700",
+    bgColor: "bg-green-100",
+    recommendation: "Região com apenas focos leves ou inexistentes.",
+  };
 }
 
 /**
@@ -232,7 +212,6 @@ export function getLastYearDateRange(): { startDate: string; endDate: string } {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setFullYear(endDate.getFullYear() - 1);
-
   return {
     startDate: startDate.toISOString().split("T")[0],
     endDate: endDate.toISOString().split("T")[0],
