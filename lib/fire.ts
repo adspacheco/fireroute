@@ -79,15 +79,15 @@ export function getFireIntensityLevel(fire: FireFeature): string {
  */
 export function getFireIconOptions(intensity: string): FireIconOptions {
   const intensityLower = intensity.toLowerCase();
-  let iconColor = "red"; // padrão para intensidade alta
+  let iconColor = "red";
 
   if (intensityLower.includes("baix")) {
-    iconColor = "green"; // Mudando para verde para intensidade baixa
+    iconColor = "green";
   } else if (
     intensityLower.includes("médi") ||
     intensityLower.includes("medi")
   ) {
-    iconColor = "orange"; // Mudando para laranja para intensidade média
+    iconColor = "orange";
   }
 
   return {
