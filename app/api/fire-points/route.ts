@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
         return (
           featureDate >= startDate &&
           featureDate <= endDate &&
-          feature.properties.frp !== undefined
+          feature.properties.frp !== undefined &&
+          feature.properties.frp !== null
         );
       });
     }

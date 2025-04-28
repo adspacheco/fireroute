@@ -50,7 +50,7 @@ export interface FireIconOptions {
  * Classifica intensidade do fogo baseado no FRP
  */
 export function classifyFireIntensity(frp?: number): string {
-  if (!frp) return "Média";
+  if (frp === undefined || frp === null) return "Não classificada";
   if (frp < 30) return "Baixa";
   if (frp < 100) return "Média";
   return "Alta";
