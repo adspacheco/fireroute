@@ -95,8 +95,17 @@ export default function MapContainer() {
           toast("Localização encontrada!");
           return;
         } catch (error) {
-          console.error("Erro geolocalização:", error);
-          toast("Usando localização aproximada");
+          const geoError = error as GeolocationPositionError;
+          if (geoError.code === 1) {
+            // Permissão negada - é esperado
+            console.log("Permissão de localização negada. Usando aproximada.");
+          } else {
+            console.error("Erro geolocalização:", error);
+          }
+          toast.info("Usando localização aproximada", {
+            id: "approximate-location",
+            duration: 5000,
+          });
         } finally {
           setIsLoadingLocation(false);
           locationFetched.current = true;
@@ -110,6 +119,7 @@ export default function MapContainer() {
       if (data.latitude && data.longitude) {
         setPosition([parseFloat(data.latitude), parseFloat(data.longitude)]);
         setShouldFetchFires(true);
+        setLocationConfirmed(true);
       }
     } catch (err) {
       console.error("Erro localização:", err);
