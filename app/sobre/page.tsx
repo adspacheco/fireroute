@@ -270,7 +270,7 @@ export default function AboutPage() {
                     Visualização do Raio
                   </h3>
                   <p className="mb-2 text-sm text-gray-700">
-                    Um círculo de 3 km é desenhado ao redor da localização,
+                    Um círculo de 4 km é desenhado ao redor da localização,
                     representando a área de análise. Dentro deste raio, todos os
                     focos de incêndio dos últimos 12 meses são exibidos como
                     marcadores coloridos.
@@ -302,7 +302,7 @@ export default function AboutPage() {
                   <p className="text-sm text-gray-700">
                     No topo da tela, um alerta indica o nível geral de risco da
                     área, baseado na quantidade e severidade dos focos
-                    encontrados no raio de 3 km, com recomendações apropriadas
+                    encontrados no raio de 4 km, com recomendações apropriadas
                     para o usuário.
                   </p>
                 </li>
@@ -376,7 +376,7 @@ export function getLastYearDateRange(): { startDate: string; endDate: string } {
           </h2>
           <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
             <p className="text-gray-700 mb-4">
-              O FireRoute utiliza um raio padrão de 3 quilômetros ao redor da
+              O FireRoute utiliza um raio padrão de 4 quilômetros ao redor da
               localização do usuário, escolhido com base em estudos sobre a
               relevância das queimadas para o cidadão:
             </p>
